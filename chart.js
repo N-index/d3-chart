@@ -269,7 +269,7 @@ export const drawChart = async () => {
 
     // 绘制每一帧
     for (const [time, keyframe] of sortedTimeGroup) {
-        const linearTransition = transition(easeLinear).duration(2000).delay(0);
+        const linearTransition = transition().ease(easeLinear).duration(2000).delay(0);
 
         // 更新当前的时间文本
         updateTimeText(time, linearTransition);
