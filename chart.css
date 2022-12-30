@@ -1,5 +1,7 @@
 svg{
-    width: 800px;
-    height: 500px;
     background-color: #efefef;
 }
+
+.grid-stack { background: #eeefeb; }
+.grid-stack-item-content { border-radius: 4px;overflow: hidden; background-color: #18BC9C;position: relative }
+/*.grid-content{position: absolute;inset: 0;}*/

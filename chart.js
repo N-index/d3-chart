@@ -1,32 +1,38 @@
-import {text} from "d3-fetch";
-import {csvParseRows} from 'd3-dsv';
-import {scaleLinear,} from "d3-scale";
-import {
-    ascending,
-    count,
-    cumsum,
-    descending,
-    extent,
-    max,
-    mean,
-    min,
-    rank,
-    rollup,
-    group,
-    groups,
-    rollups,
-    sum
-} from "d3-array";
-import {select} from "d3-selection";
-import {axisTop} from "d3-axis";
-import {timeMonth} from 'd3-time';
-import {transition,} from "d3-transition";
-import {easeLinear, easeQuadIn} from "d3-ease";
-import {timeFormat} from 'd3-time-format';
-import {interpolateRound} from 'd3-interpolate';
+import * as d3 from './src/utils/d3';
 
-export const drawChart = async () => {
+export const drawChart = async (container) => {
     console.log('---draw chart---');
+    if (!container) {
+        console.log('无绘图容器');
+        return
+    }
+    container.drawChart = () => {
+        // 移除上一次绘图的残留
+        d3.select(container).select('svg').remove();
+        drawChart(container);
+    }
+
+    const dimensions = {
+        width: container.offsetWidth,
+        height: container.offsetHeight,
+        margin: {
+            top: 30,
+            right: 30,
+            bottom: 30,
+            left: 30
+        }
+    };
+    dimensions.boundWidth = dimensions.width - dimensions.margin.left - dimensions.margin.right;
+    dimensions.boundHeight = dimensions.height - dimensions.margin.top - dimensions.margin.bottom;
+
+
+    const svg = d3.select(container)
+        .append('svg')
+        .attr('width', dimensions.boundWidth)
+        .attr('height', dimensions.boundHeight)
+        .append('g')
+        .attr('transform', `translate(${dimensions.margin.left},${dimensions.margin.top})`);
+
 
     const orderDateAccessor = d => d[0]; // 销售日期
     const sellAmount = d => d[10]; // 销售数量
@@ -41,7 +47,7 @@ export const drawChart = async () => {
 
     // 1. 根据时间（以月为单位）分组 (group)  2. 根据区域分组(rollup)
 
-    const monthStartAccessor = row => timeMonth.floor(orderDateAccessor(row));
+    const monthStartAccessor = row => d3.timeMonth.floor(orderDateAccessor(row));
 
     // 区域的集合
     const areaMap = new Map();
@@ -85,7 +91,7 @@ export const drawChart = async () => {
     }
 
     // 2. 对时间片进行排序。便于计算统计信息（累加），便于绘图
-    const sortedTimeGroup = [...timeGroupMap.entries()].sort(([timeA], [timeB]) => ascending(timeA, timeB));
+    const sortedTimeGroup = [...timeGroupMap.entries()].sort(([timeA], [timeB]) => d3.ascending(timeA, timeB));
 
 
     // 2. 分组完成之后，计算统计信息
@@ -93,7 +99,7 @@ export const drawChart = async () => {
         const {summary: timeGroupSummary, areaGroupMap} = timeGroup;
         areaGroupMap.forEach((areaDetail, areaName) => {
             const {group, summary: areaSummary} = areaDetail;
-            areaSummary.sum = sum(group, sellMoneyAccessor);
+            areaSummary.sum = d3.sum(group, sellMoneyAccessor);
 
             if (keyframeIndex === 0) { // 如果是第一帧
                 areaSummary.cumSum = areaSummary.sum;
@@ -113,7 +119,7 @@ export const drawChart = async () => {
 
         // 通过 cumSum 计算 rank
         const sortedAreaGroup = [...areaGroupMap.entries()].sort(([areaNameA, areaDetailA], [areaNameB, areaDetailB]) => {
-            return descending(areaDetailA.summary.cumSum, areaDetailB.summary.cumSum);
+            return d3.descending(areaDetailA.summary.cumSum, areaDetailB.summary.cumSum);
         })
         sortedAreaGroup.forEach(([areaName], index) => {
             areaGroupMap.get(areaName).summary.rank = index;
@@ -125,11 +131,11 @@ export const drawChart = async () => {
     })
 
 
-    const timeFormatter = timeFormat("%Y-%m")
+    const timeFormatter = d3.timeFormat("%Y-%m")
 
     const getUpdateTimeText = () => {
         // 大的时间标识
-        const curTimeText = select('svg')
+        const curTimeText = svg
             .append('text')
             .attr('x', 500)
             .attr('y', 480)
@@ -140,7 +146,6 @@ export const drawChart = async () => {
             .style('user-select', 'none')
         // update text
         return (time, transition) => {
-            // curTimeText.text(timeFormatter(time))
             transition.end().then(() => {
                 curTimeText.text(timeFormatter(time))
             });
@@ -150,17 +155,16 @@ export const drawChart = async () => {
     const updateTimeText = getUpdateTimeText();
 
     // 销售金额比例尺
-    const sellMoneyScale = scaleLinear().range([0, 600]);
+    const sellMoneyScale = d3.scaleLinear().range([0, dimensions.boundWidth - 150]);
     const getUpdateAxis = () => {
         // X轴容器
-        const g = select('svg')
+        const g = svg
             .append('g')
-            .attr('transform', `translate(100,50)`)
             .attr('class', 'my-axis')
             .style('color', 'steelblue');
 
         // 生成X轴
-        const axis = axisTop(sellMoneyScale);
+        const axis = d3.axisTop(sellMoneyScale);
 
         // 调用此方法更新Axis
         return (transition) => {
@@ -170,16 +174,13 @@ export const drawChart = async () => {
 
     const getUpdateBar = () => {
         // 画所有条形
-        const barGroup = select('svg')
+        const barGroup = svg
             .append('g')
             .classed('bar-group', true)
-            .attr('transform', `translate(100,80)`)
 
-        const barText = select('svg')
+        const barText = svg
             .append('g')
             .classed('bar-text', true)
-            .attr('transform', `translate(100,80)`)
-
 
         return (keyframe, transition) => {
             barGroup
@@ -237,7 +238,7 @@ export const drawChart = async () => {
                 //     const [areaName, areaDetail] = areaRecord;
                 //     const {cumSum, sum} = areaDetail.summary;
                 //
-                //     const i = interpolateRound(cumSum - sum, cumSum);
+                //     const i = d3.interpolateRound(cumSum - sum, cumSum);
                 //     return function (t) {
                 //         this.textContent = areaName + ': ' + i(t)
                 //     }
@@ -245,7 +246,7 @@ export const drawChart = async () => {
                 .textTween((areaRecord) => {
                     const [areaName, areaDetail] = areaRecord;
                     const {cumSum, sum} = areaDetail.summary;
-                    const i = interpolateRound(cumSum - sum, cumSum);
+                    const i = d3.interpolateRound(cumSum - sum, cumSum);
                     return (t) => {
                         return `${areaName}: ${i(t)}`
                     }
@@ -269,7 +270,7 @@ export const drawChart = async () => {
 
     // 绘制每一帧
     for (const [time, keyframe] of sortedTimeGroup) {
-        const linearTransition = transition().ease(easeLinear).duration(2000).delay(0);
+        const linearTransition = d3.transition().ease(d3.easeLinear).duration(2000).delay(0);
 
         // 更新当前的时间文本
         updateTimeText(time, linearTransition);
@@ -278,7 +279,11 @@ export const drawChart = async () => {
         sellMoneyScale.domain([0, keyframe.summary.maxCumSumValue]);
         updateAxis(linearTransition);
         updateBar(keyframe, linearTransition);
-        await linearTransition.end()
+        await linearTransition.end().catch((e) => {
+            // linearTransition.selection().interrupt();
+            // linearTransition.selection().selectAll("*").interrupt();
+            // svg.interrupt();
+        })
     }
 
 
@@ -286,8 +291,8 @@ export const drawChart = async () => {
 
 // 获取数据、解析数据
 const fetchData = async () => {
-    const plainCsvText = await text('/电商销售数据.csv');
-    return csvParseRows(plainCsvText, row => row.map((cell, index) => {
+    const plainCsvText = await d3.text('/电商销售数据.csv');
+    return d3.csvParseRows(plainCsvText, row => row.map((cell, index) => {
             if (index === 0) return new Date(Date.parse(cell));
             return parseString(cell)
         }
