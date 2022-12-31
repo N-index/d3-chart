@@ -1,19 +1,31 @@
 import './style.css'
 import './chart.css'
-import {drawChart} from './chart.js'
+import {drawChart} from './bar-race-chart.js'
+import {drawChart as drawChart1} from './tree-map'
 import 'gridstack/dist/gridstack.min.css';
 import {GridStack} from 'gridstack';
 
-const chartContainer = document.createElement('div');
+const gridItem = document.createElement('div');
+const gridItemContent = document.createElement('div');
+gridItemContent.classList.add('grid-stack-item-content');
+gridItem.appendChild(gridItemContent)
 
-// dom.textContent = '你好世界';
+const gridItem1 = document.createElement('div');
+const gridItemContent1 = document.createElement('div');
+gridItemContent1.classList.add('grid-stack-item-content');
+gridItem1.appendChild(gridItemContent1);
 
 const items = [
-    {el: chartContainer, w: 5, h: 4}, // will default to location (0,0) and 1x1
-    // {content:  'my first widget'}, // will default to location (0,0) and 1x1
-    // {w: 2, content: 'another longer widget!'} // will be placed next at (1,0) and 2x1
+    {el: gridItem, w: 5, h: 3}, // will default to location (0,0) and 1x1
+    {el: gridItem1, w: 8, h: 4}, // will default to location (0,0) and 1x1
 ];
-const grid = GridStack.init();
+const grid = GridStack.init({
+    minRow: 8,
+    float: true,
+    margin: 5,
+    resizable: {handles: 'all'},
+    alwaysShowResizeHandle: false
+});
 grid.load(items);
 
 grid.on('added', function (event, items) {
@@ -25,10 +37,12 @@ grid.on('added', function (event, items) {
 
 grid.on('change', function (event, items) {
     items.forEach(function (item) {
-        item.el?.drawChart?.();
+        console.log(item);
+        item.el && item.el.querySelector('.grid-stack-item-content')?.drawChart?.();
     });
 });
 
-drawChart(chartContainer);
+drawChart(gridItemContent);
+drawChart1(gridItemContent1);
 
 

@@ -11,3 +11,5 @@ export {transition,} from "d3-transition";
 export {easeLinear, easeQuadIn} from "d3-ease";
 export {timeFormat} from 'd3-time-format';
 export {interpolateRound} from 'd3-interpolate';
+export {stratify, hierarchy, treemap,treemapBinary,treemapDice,treemapSlice,treemapSliceDice,treemapSquarify,treemapResquarify} from "d3-hierarchy";
+

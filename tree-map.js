@@ -1,7 +1,8 @@
 import * as d3 from './src/utils/d3';
 
+
 export const drawChart = async (container) => {
-    console.log('---draw chart---');
+    console.log('---draw tree map---');
     if (!container) {
         console.log('无绘图容器');
         return
@@ -28,19 +29,20 @@ export const drawChart = async (container) => {
 
     const svg = d3.select(container)
         .append('svg')
-        .attr('width', dimensions.boundWidth)
-        .attr('height', dimensions.boundHeight)
+        .attr('width', dimensions.width)
+        .attr('height', dimensions.height)
         .append('g')
         .attr('transform', `translate(${dimensions.margin.left},${dimensions.margin.top})`);
 
+
+    // 绘制地区下各省的销售金额
 
     const orderDateAccessor = d => d[0]; // 销售日期
     const sellAmount = d => d[10]; // 销售数量
 
     const areaAccessor = d => d[4]; // 区域
-    const sellMoneyAccessor = d => {
-        return d[11];
-    }; // 销售金额
+    const provinceAccessor = d => d[5]; // 省份
+    const sellMoneyAccessor = d => d[11]; // 销售金额
 
     const [header, ...body] = await fetchData();
 
@@ -125,10 +127,108 @@ export const drawChart = async (container) => {
             areaGroupMap.get(areaName).summary.rank = index;
         })
         timeGroup.sortedAreaGroup = sortedAreaGroup;
+        timeGroup.treeRoot = calcTreeRoot(timeGroup);
 
         timeGroupSummary.maxCumSumAreaName = sortedAreaGroup[0]?.[0];
         timeGroupSummary.maxCumSumValue = sortedAreaGroup[0]?.[1].summary.cumSum;
     })
+
+    function calcTreeRoot(keyframe) {
+        // 根节点必须唯一
+        const wrapper = ['root', {group: keyframe.sortedAreaGroup}];
+
+        const hierarchyRoot = d3.hierarchy(wrapper, node => node[1].group);
+
+        // 分好层以后计算每一层的数值。(暂时用children的个数作为value)
+        hierarchyRoot.sum(node => {
+            // console.log('node是');
+            // console.log(node);
+            return node[1] && node[1].summary && node[1].summary.sum || 0;
+            // return node[1] && node[1].group && node[1].group.length || 0;
+        })
+
+        // treemapBinary, treemapDice,treemapSlice,treemapSliceDice,treemapSquarify,treemapResquarify
+        // 计算布局坐标
+        return d3.treemap()
+            .tile(d3.treemapSquarify)
+            .size([dimensions.boundWidth, dimensions.boundHeight])
+            .padding(5)
+            (hierarchyRoot);
+    }
+
+    const getPrevKeyframeRectValue = (curKeyframeIndex, areaName) => {
+        if (curKeyframeIndex === 0) return 0;
+
+        const prevKeyframeIndex = curKeyframeIndex - 1;
+
+        const prevKeyframe = sortedTimeGroup[prevKeyframeIndex][1]; // [0] 是时间
+
+        // root 下级的节点（区域）
+        const childrenNodeInPrevKeyframe = prevKeyframe.treeRoot.children;
+        const matchedAreaNode = childrenNodeInPrevKeyframe.find(node => node.data[0] === areaName);
+        return matchedAreaNode.value || 0;
+    }
+
+    const initRects = () => {
+        // 初始化叶子节点的视图
+        const rectGroup = svg.append('g').classed('rect-group', true);
+        const labelGroup = svg.append('g').classed('label-group', true);
+
+        return (nodes, transition, keyframeIndex) => {
+            // 矩形
+            rectGroup
+                .selectAll('rect')
+                .data(nodes, d => d.data[0])
+                .join(enter => {
+                    return enter
+                        .append('rect')
+                        .attr('x', d => d.x0)
+                        .attr('y', d => d.y0)
+                        .attr("width", d => d.x1 - d.x0)
+                        .attr("height", d => d.y1 - d.y0)
+                        .attr('fill', '#4682b4')
+                        .attr("stroke", 'black')
+                        .attr("stroke-width", '1')
+                },)
+                .transition(transition)
+                .attr('x', d => d.x0)
+                .attr('y', d => d.y0)
+                .attr("width", d => d.x1 - d.x0)
+                .attr("height", d => d.y1 - d.y0)
+
+            // 文字label
+            labelGroup
+                .selectAll('text')
+                .data(nodes, d => d.data[0])
+                .join(enter => {
+                    return enter
+                        .append('text')
+                        .attr('x', d => d.x0)
+                        .attr('y', d => d.y0)
+                        .text(d => {
+                            return `${d.data[0]}: ${d.value}`
+                        })
+                        .attr('dy', '2px')
+                        .attr('alignment-baseline', 'hanging')
+                        .attr('fill', '#fff')
+                },)
+                .transition(transition)
+                .textTween((node) => {
+                    const areaName = node.data[0];
+                    const prevValue = getPrevKeyframeRectValue(keyframeIndex, areaName);
+                    const i = d3.interpolateRound(prevValue, node.value);
+
+                    return (t) => {
+                        return `${areaName}: ${i(t)}`
+                    }
+                })
+                .attr('x', d => d.x0)
+                .attr('y', d => d.y0)
+
+        }
+    }
+
+    const updateRects = initRects();
 
 
     const timeFormatter = d3.timeFormat("%Y-%m")
@@ -137,13 +237,15 @@ export const drawChart = async (container) => {
         // 大的时间标识
         const curTimeText = svg
             .append('text')
-            .attr('x', 500)
-            .attr('y', 480)
+            .attr('x', dimensions.boundWidth)
+            .attr('y', dimensions.boundHeight)
             .style('fill', '#9aa089')
             .attr('stroke-width', '0')
             .style('font-size', '35px')
             .style('pointer-events', 'none')
             .style('user-select', 'none')
+            .attr('text-anchor', 'end')
+            .attr('alignment-baseline', 'bottom')
         // update text
         return (time, transition) => {
             transition.end().then(() => {
@@ -154,135 +256,19 @@ export const drawChart = async (container) => {
 
     const updateTimeText = getUpdateTimeText();
 
-    // 销售金额比例尺
-    const sellMoneyScale = d3.scaleLinear().range([0, dimensions.boundWidth - 150]);
-    const getUpdateAxis = () => {
-        // X轴容器
-        const g = svg
-            .append('g')
-            .attr('class', 'my-axis')
-            .style('color', 'steelblue');
 
-        // 生成X轴
-        const axis = d3.axisTop(sellMoneyScale);
-
-        // 调用此方法更新Axis
-        return (transition) => {
-            g.transition(transition).call(axis)
-        }
-    }
-
-    const getUpdateBar = () => {
-        // 画所有条形
-        const barGroup = svg
-            .append('g')
-            .classed('bar-group', true)
-
-        const barText = svg
-            .append('g')
-            .classed('bar-text', true)
-
-        return (keyframe, transition) => {
-            barGroup
-                .selectAll('rect')
-                .data(keyframe.sortedAreaGroup, areaRecord => {
-                    return areaRecord[0]
-                })
-                .join(
-                    enter => {
-                        return enter
-                            .append('rect')
-                            .attr('x', 0)
-                            .attr('height', 20)
-                            .attr('fill', 'steelblue')
-                            .attr('y', (areaRecord) => {
-                                const [_, areaDetail] = areaRecord;
-                                const {rank} = areaDetail.summary;
-                                return rank * 50
-                            })
-                    },
-                )
-                .transition(transition)
-                .attr('y', (areaRecord) => {
-                    const [_, areaDetail] = areaRecord;
-                    const {rank} = areaDetail.summary;
-                    return rank * 50
-                })
-                .attr('width', areaRecord => {
-                    const [_, areaDetail] = areaRecord;
-                    const {cumSum} = areaDetail.summary;
-                    return sellMoneyScale(cumSum)
-                })
-
-
-            barText
-                .selectAll('text')
-                .data(keyframe.sortedAreaGroup, areaRecord => {
-                    return areaRecord[0]
-                })
-                .join(enter => {
-                    return enter
-                        .append('text')
-                        .attr('y', (areaRecord) => {
-                            const [_, areaDetail] = areaRecord;
-                            const {rank} = areaDetail.summary;
-                            return rank * 50
-                        })
-                        .attr('dx', '5px')
-                        .attr('dy', '10px')
-                        .attr('alignment-baseline', 'middle')
-                        .attr('color', 'red')
-                },)
-                .transition(transition)
-                // .tween('text', (areaRecord) => {
-                //     const [areaName, areaDetail] = areaRecord;
-                //     const {cumSum, sum} = areaDetail.summary;
-                //
-                //     const i = d3.interpolateRound(cumSum - sum, cumSum);
-                //     return function (t) {
-                //         this.textContent = areaName + ': ' + i(t)
-                //     }
-                // })
-                .textTween((areaRecord) => {
-                    const [areaName, areaDetail] = areaRecord;
-                    const {cumSum, sum} = areaDetail.summary;
-                    const i = d3.interpolateRound(cumSum - sum, cumSum);
-                    return (t) => {
-                        return `${areaName}: ${i(t)}`
-                    }
-                })
-                .attr('x', areaRecord => {
-                    const [_, areaDetail] = areaRecord;
-                    const {cumSum} = areaDetail.summary;
-                    return sellMoneyScale(cumSum)
-                })
-                .attr('y', (areaRecord) => {
-                    const [_, areaDetail] = areaRecord;
-                    const {rank} = areaDetail.summary;
-                    return rank * 50
-                })
-        }
-    }
-    const updateBar = getUpdateBar();
-
-    const updateAxis = getUpdateAxis();
-
-
+    let keyframeIndex = -1;
     // 绘制每一帧
     for (const [time, keyframe] of sortedTimeGroup) {
-        const linearTransition = d3.transition().ease(d3.easeLinear).duration(2000).delay(0);
-
+        keyframeIndex++;
+        const linearTransition = d3.transition().ease(d3.easeLinear).duration(2000);
         // 更新当前的时间文本
         updateTimeText(time, linearTransition);
+        const childrenNodeInKeyframe = keyframe.treeRoot.children;
+        updateRects(childrenNodeInKeyframe, linearTransition, keyframeIndex);
 
-        // 更新值域，更新Axis
-        sellMoneyScale.domain([0, keyframe.summary.maxCumSumValue]);
-        updateAxis(linearTransition);
-        updateBar(keyframe, linearTransition);
         await linearTransition.end().catch((e) => {
-            // linearTransition.selection().interrupt();
-            // linearTransition.selection().selectAll("*").interrupt();
-            // svg.interrupt();
+            console.log(e);
         })
     }
 

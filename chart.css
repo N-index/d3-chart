@@ -1,7 +1,16 @@
-svg{
-    background-color: #efefef;
+svg {
+    /*background-color: #efefef;*/
+    /*overflow: visible;*/
 }
 
-.grid-stack { background: #eeefeb; }
-.grid-stack-item-content { border-radius: 4px;overflow: hidden; background-color: #18BC9C;position: relative }
-/*.grid-content{position: absolute;inset: 0;}*/
+.grid-stack {
+    background: #fefefe;
+}
+
+.grid-stack-item-content {
+    border-radius: 4px;
+    overflow: hidden;
+    background-color: #fff;
+    position: relative;
+    box-shadow: 0 0 5px rgba(0, 0, 0, .2);
+}
