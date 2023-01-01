@@ -1,7 +1,7 @@
 import * as d3 from './src/utils/d3';
 
 export const drawChart = async (container) => {
-    console.log('---draw chart---');
+    console.log('---draw bar race chart---');
     if (!container) {
         console.log('无绘图容器');
         return
@@ -11,8 +11,6 @@ export const drawChart = async (container) => {
         d3.select(container).select('svg').remove();
         drawChart(container);
     }
-    console.log('容器是');
-    console.log(container)
 
     const dimensions = {
         width: container.offsetWidth,
@@ -27,6 +25,8 @@ export const drawChart = async (container) => {
     dimensions.boundWidth = dimensions.width - dimensions.margin.left - dimensions.margin.right;
     dimensions.boundHeight = dimensions.height - dimensions.margin.top - dimensions.margin.bottom;
 
+    console.log('bar里的container')
+    console.log(container);
 
     const svg = d3.select(container)
         .append('svg')
@@ -146,8 +146,8 @@ export const drawChart = async (container) => {
             .style('font-size', '35px')
             .style('pointer-events', 'none')
             .style('user-select', 'none')
-            .attr('text-anchor','end')
-            .attr('alignment-baseline','bottom')
+            .attr('text-anchor', 'end')
+            .attr('alignment-baseline', 'bottom')
         // update text
         return (time, transition) => {
             transition.end().then(() => {
@@ -274,7 +274,7 @@ export const drawChart = async (container) => {
 
     // 绘制每一帧
     for (const [time, keyframe] of sortedTimeGroup) {
-        const linearTransition = d3.transition().ease(d3.easeLinear).duration(2000).delay(0);
+        const linearTransition = d3.transition('bar-race').ease(d3.easeLinear).duration(2000).delay(0);
 
         // 更新当前的时间文本
         updateTimeText(time, linearTransition);
@@ -283,11 +283,10 @@ export const drawChart = async (container) => {
         sellMoneyScale.domain([0, keyframe.summary.maxCumSumValue]);
         updateAxis(linearTransition);
         updateBar(keyframe, linearTransition);
-        await linearTransition.end().catch((e) => {
-            // linearTransition.selection().interrupt();
-            // linearTransition.selection().selectAll("*").interrupt();
-            // svg.interrupt();
-        })
+
+        await linearTransition.end()
+
+
     }
 
 

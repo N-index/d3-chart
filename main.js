@@ -1,7 +1,7 @@
 import './style.css'
 import './chart.css'
 import {drawChart} from './bar-race-chart.js'
-import {drawChart as drawChart1} from './tree-map'
+import {drawChart1 } from './tree-map'
 import 'gridstack/dist/gridstack.min.css';
 import {GridStack} from 'gridstack';
 

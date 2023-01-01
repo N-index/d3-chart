@@ -1,7 +1,7 @@
 import * as d3 from './src/utils/d3';
 
 
-export const drawChart = async (container) => {
+export const drawChart1 = async (container) => {
     console.log('---draw tree map---');
     if (!container) {
         console.log('无绘图容器');
@@ -10,7 +10,7 @@ export const drawChart = async (container) => {
     container.drawChart = () => {
         // 移除上一次绘图的残留
         d3.select(container).select('svg').remove();
-        drawChart(container);
+        drawChart1(container);
     }
 
     const dimensions = {
@@ -26,6 +26,8 @@ export const drawChart = async (container) => {
     dimensions.boundWidth = dimensions.width - dimensions.margin.left - dimensions.margin.right;
     dimensions.boundHeight = dimensions.height - dimensions.margin.top - dimensions.margin.bottom;
 
+    console.log('tree里的container')
+    console.log(container);
 
     const svg = d3.select(container)
         .append('svg')
@@ -261,17 +263,15 @@ export const drawChart = async (container) => {
     // 绘制每一帧
     for (const [time, keyframe] of sortedTimeGroup) {
         keyframeIndex++;
-        const linearTransition = d3.transition().ease(d3.easeLinear).duration(2000);
+        const linearTransition = d3.transition('tree-transition').ease(d3.easeLinear).duration(2000);
         // 更新当前的时间文本
         updateTimeText(time, linearTransition);
         const childrenNodeInKeyframe = keyframe.treeRoot.children;
         updateRects(childrenNodeInKeyframe, linearTransition, keyframeIndex);
 
-        await linearTransition.end().catch((e) => {
-            console.log(e);
-        })
-    }
+        await linearTransition.end()
 
+    }
 
 }
 
