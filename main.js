@@ -16,7 +16,7 @@ gridItemContent1.classList.add('grid-stack-item-content');
 gridItem1.appendChild(gridItemContent1);
 
 const items = [
-    {el: gridItem, w: 5, h: 3}, // will default to location (0,0) and 1x1
+    {el: gridItem, w: 9, h: 3}, // will default to location (0,0) and 1x1
     {el: gridItem1, w: 8, h: 4}, // will default to location (0,0) and 1x1
 ];
 const grid = GridStack.init({
